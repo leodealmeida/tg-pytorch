@@ -74,7 +74,7 @@ seed_all(SEED)
 
 # extrair o dataset no colab
 import zipfile
-zip_ref = zipfile.ZipFile('/content/drive/My Drive/tg/datasets/2100-original-sanitized-binary-dataset.zip', 'r')
+zip_ref = zipfile.ZipFile('/content/drive/MyDrive/dataset/dataset.zip', 'r')
 zip_ref.extractall("/input")
 zip_ref.close()
 
@@ -89,7 +89,7 @@ os.makedirs(save_file, exist_ok=True)
 
 # constantes
 im_size = 224
-epochs = 2
+epochs = 1
 epochs_ft = 30
 batch_size = 32
 testing_with = 'validation'
@@ -256,11 +256,6 @@ def train(model, optimizer, loss_fn, train_loader, val_loader, epochs=epochs, de
         valid_loss = 0.0
         model.train()
 
-        # actuals_treino = []
-        # actuals_validacao = []
-        # predictions_treino = []
-        # predictions_validacao = []
-
         for batch in train_loader:
             optimizer.zero_grad()
             inputs, targets = batch
@@ -271,11 +266,6 @@ def train(model, optimizer, loss_fn, train_loader, val_loader, epochs=epochs, de
             loss.backward()
             optimizer.step()
             training_loss += loss.data.item() * inputs.size(0)
-            # fix
-            # prediction = torch.max(F.softmax(output), dim=1)[1]
-            # actuals_treino.extend(targets.view_as(prediction).cpu().numpy())
-            # predictions_treino.extend(prediction.cpu().numpy())
-
         training_loss /= len(train_loader.dataset)
         train_loss_print.append(training_loss)
 
@@ -287,24 +277,12 @@ def train(model, optimizer, loss_fn, train_loader, val_loader, epochs=epochs, de
             targets = targets.to(device)
             loss = loss_fn(output,targets) 
             valid_loss += loss.data.item() * inputs.size(0)
-
-            # fix
-            # prediction = torch.max(F.softmax(output), dim=1)[1]
-            # actuals_validacao.extend(targets.view_as(prediction).cpu().numpy())
-            # predictions_validacao.extend(prediction.cpu().numpy())
-
         valid_loss /= len(val_loader.dataset)
         valid_loss_print.append(valid_loss)
 
         print('Epoch: {}'.format(epoch))
         print('\tTraining Loss: {:.2f}'.format(training_loss))
         print('\tValidation Loss: {:.2f}'.format(valid_loss))
-        # print('\tAccuracy(Treino): {:.2f}'.format(accuracy_score(actuals_treino, predictions_treino)))
-        # print('\tAccuracy(Validacao): {:.2f}'.format(accuracy_score(actuals_validacao, predictions_validacao)))
-        # print('\tRecall+(Treino): {:.2f}'.format(recall_score(actuals_treino, predictions_treino, pos_label=0)))
-        # print('\tRecall+(Validacao): {:.2f}'.format(recall_score(actuals_validacao, predictions_validacao, pos_label=0)))
-        # print('\tRecall-(Treino): {:.2f}'.format(recall_score(actuals_treino, predictions_treino, pos_label=1)))
-        # print('\tRecall-(Validacao): {:.2f}'.format(recall_score(actuals_validacao, predictions_validacao, pos_label=1)))
 
 gc.collect()
 
@@ -318,8 +296,10 @@ if found_lr == None:
 
 optimizer = optim.Adam(transfer_model.parameters(), lr=found_lr)
 
+epochs
+
 # Training
-train(transfer_model, optimizer,torch.nn.CrossEntropyLoss(), train_data_loader, validation_data_loader, epochs=1, device=device)
+train(transfer_model, optimizer,torch.nn.CrossEntropyLoss(), train_data_loader, validation_data_loader, epochs=3, device=device)
 
 # Save
 
@@ -365,16 +345,40 @@ loader = torch.utils.data.DataLoader(
 
 actuals, predictions = computar_metricas(model, device, loader)
 
-len(actuals)
-
 from sklearn.metrics import confusion_matrix
 
-print('Accuracy(loader): {:.2f}'.format(accuracy_score(actuals, predictions)))
-print('Recall+(loader): {:.2f}'.format(recall_score(actuals, predictions, pos_label=0)))
-print('Recall-(loader): {:.2f}'.format(recall_score(actuals, predictions, pos_label=1)))
+print('Accuracy(loader): {:.4f}'.format(accuracy_score(actuals, predictions)))
+print('Recall+(loader): {:.4f}'.format(recall_score(actuals, predictions, pos_label=0)))
+print('Recall-(loader): {:.4f}'.format(recall_score(actuals, predictions, pos_label=1)))
 print('Confusion matrix:')
 cm = confusion_matrix(actuals, predictions)
 print(cm)
+
+with open('actuals.txt', 'w') as file:
+    for i in actuals:
+        file.write("%d\n" % i)
+
+with open('predictions.txt', 'w') as file:
+    for i in predictions:
+        file.write("%d\n" % i)
+
+act_2 = []
+with open('actuals.txt', 'r') as f:
+    content = f.readlines()
+    xx = [x.strip() for x in content]
+    for i in xx:
+        act_2.append(int(i))
+
+preds_2 = []
+with open('predictions.txt', 'r') as f:
+    content = f.readlines()
+    xx = [x.strip() for x in content]
+    for i in xx:
+        preds_2.append(int(i))
+
+predictions == preds_2
+
+act_2 == actuals
 
 start = torch.cuda.Event(enable_timing=True)
 end = torch.cuda.Event(enable_timing=True)
@@ -394,22 +398,6 @@ def test_class_probabilities(model, device, test_loader, which_class):
     end.record()
     return [i.item() for i in actuals], [i.item() for i in probabilities]
 
-# model.eval()
-    # actuals = []
-    # probabilities = []
-    # predictions = []
-    # actuals_sem_ser_bool = []
-    # with torch.no_grad():
-    #     for data, target in test_loader:
-    #         data, target = data.to(device), target.to(device)
-    #         output = model(data)
-    #         prediction = output.argmax(dim=1, keepdim=True)
-    #         predictions.extend(prediction)
-    #         actuals.extend(target.view_as(prediction) == which_class)
-    #         probabilities.extend(np.exp(torch.Tensor.cpu(output[:, which_class])))
-    #         actuals_sem_ser_bool.extend(target.view_as(prediction))
-    # return [i.item() for i in actuals], [i.item() for i in probabilities], [i.item() for i in predictions], [i.item() for i in actuals_sem_ser_bool]
-
 test_loader = torch.utils.data.DataLoader(
     validation_data,
     batch_size=batch_size,
@@ -418,9 +406,46 @@ test_loader = torch.utils.data.DataLoader(
 torch.cuda.synchronize()
 
 positive_class = 0
-actuals, class_probabilities = test_class_probabilities(model, device, test_loader, positive_class)
+actuals_ROC, class_probabilities = test_class_probabilities(model, device, test_loader, positive_class)
 
 print(start.elapsed_time(end))
+
+actuals_ROC
+
+with open('actuals_ROC.txt', 'w') as file:
+    for i in actuals_ROC:
+        if i == True:
+            aux = 1
+        else:
+            aux = 0
+        file.write("%d\n" % aux)
+
+act_roc_2 = []
+with open('actuals_ROC.txt', 'r') as f:
+    content = f.readlines()
+    xx = [x.strip() for x in content]
+    for i in xx:
+        act_roc_2.append(bool(int(i)))
+
+actuals_ROC == act_roc_2
+
+with open('probabilities_ROC.txt', 'w') as file:
+    for i in class_probabilities:
+        file.write("%.10f\n" % i)
+
+probs = []
+with open('probabilities_ROC.txt', 'r') as f:
+    content = f.readlines()
+    xx = [x.strip() for x in content]
+    for i in xx:
+        probs.append(float(i))
+
+class_probabilities
+
+def Diff(li1, li2):
+    return (list(list(set(li1)-set(li2)) + list(set(li2)-set(li1))))
+
+Diff(class_probabilities, probs)
 
 fpr, tpr, _ = roc_curve(actuals, class_probabilities)
 
@@ -521,16 +546,7 @@ plot_confusion_matrix(
 #     print('Sensitivity - {:>12.4f}'.format(sens) + ' ')
 #     print('Specificity - {:>12.4f}'.format(specf) + '\n')
 
-# For balanced datasets
-# acc_avg /= num_classes
-# sens_avg /= num_classes
-# specf_avg /= num_classes
-
-# print('\n\n=========================\n\nAccuracy avg:    ' + '{:.4f}'.format(acc_avg) + '\nSensitivity avg: ' +'{:.4f}'.format(sens_avg) + '\nSpecificity avg: ' + '{:.4f}'.format(specf_avg) + '\n')
-# print('\nlr: ' + str(found_lr) + '\n')
-
-# printar grafico loss treino e validacao
-epochs_arr = range(0, 1)
+epochs_arr = range(0, 10)
 
 fig, ax1 = plt.subplots()
 color = 'tab:red'
@@ -559,18 +575,38 @@ plt.show()
 # plt.show()
 # plt.savefig(save_file/'epochsVsLoss.png')
 
-arr = [1,2,3,4,5,6]
-brr = [11.123 ,12.1212, 13.1212, 14.111, 15.111, 16.111]
+"""TESTE SE O ARQUIVO TA FUNFANDO -- nao ta"""
 
-type(arr) == type(preds)
+actuals_from_file = np.loadtxt('actuals_label.txt')
+predictions_from_file = np.loadtxt('predictions_label.txt')
 
-np.savetxt("aa1.txt", Arr)
+from sklearn.metrics import confusion_matrix
 
-with open("aa1.txt", "ab") as f:
-    np.savetxt(f, Brr)
+print('Accuracy(loader): {:.4f}'.format(accuracy_score(actuals_from_file, predictions_from_file)))
+print('Recall+(loader): {:.4f}'.format(recall_score(actuals_from_file, predictions_from_file, pos_label=0)))
+print('Recall-(loader): {:.4f}'.format(recall_score(actuals_from_file, predictions_from_file, pos_label=1)))
+print('Confusion matrix:')
+cm = confusion_matrix(actuals_from_file, predictions_from_file)
+print(cm)
 
-content = np.loadtxt("aa1.txt") 
-print("\nContent in file2.txt:\n", content)
+actuals_from_file = np.loadtxt('actuals_ROC.txt')
+probs = np.loadtxt('probabilities_ROC.txt')
+
+fpr_2, fpr_2, _ = roc_curve(actuals_from_file, probs)
+roc_auc_2 = auc(fpr_2, fpr_2)
+
+plt.figure()
+lw = 2
+plt.plot(fpr, tpr, color='darkorange',
+         lw=lw, label='ROC curve (area = %0.2f)' % roc_auc_2)
+plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC for digit=%d class' % positive_class)
+plt.legend(loc="lower right")
+plt.show()
 
 """Meta colab"""
 
